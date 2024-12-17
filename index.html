@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>约瑟夫环问题模拟</title>
+<style>
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+    background: linear-gradient(135deg, #f5f5f5, #d1e8e2);
+    color: #333;
+  }
+  .container {
+    text-align: center;
+    background-color: #ffffff;
+    padding: 30px 40px;
+    border-radius: 12px;
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
+    width: 480px;
+    box-sizing: border-box;
+  }
+  .circle {
+    width: 35px;
+    height: 35px;
+    border-radius: 50%;
+    position: absolute;
+    border: 2px solid #4CAF50;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 14px;
+    background-color: #ffffff;
+    box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s, opacity 0.3s;
+  }
+  .last-one {
+    background-color: #4CAF50;
+    color: white;
+  }
+  .current {
+    background-color: #ffcccc;
+  }
+  label {
+    font-weight: bold;
+    margin-right: 10px;
+    display: inline-block;
+    width: 90px;
+    text-align: right;
+  }
+  input, button {
+    margin: 10px 0;
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    font-size: 16px;
+    box-sizing: border-box;
+  }
+  input[type="range"] {
+    width: 100%;
+  }
+  input[type="number"] {
+    width: 80px; /* 缩窄输入框宽度 */
+  }
+  button {
+    background-color: #333;
+    color: white;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+    width: 100px; /* 缩窄按钮宽度 */
+    margin: 5px;
+  }
+  button:hover {
+    background-color: #555;
+  }
+  button:disabled {
+    background-color: #cccccc;
+    cursor: not-allowed;
+  }
+  .circle.fade-out {
+    animation: fadeOut 0.3s forwards;
+  }
+
+  @keyframes fadeOut {
+    to {
+      opacity: 0;
+      transform: scale(0);
+    }
+  }
+
+  .button-container {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 20px;
+  }
+
+  @media (max-width: 600px) {
+    .container {
+      width: 90%;
+    }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <div id="circleContainer" style="position: relative; height: 400px; width: 550px; margin: 20px auto;"></div>
+  <label for="nInput">人数:</label>
+  <input type="number" id="nInput" placeholder="41" value="41">
+  <label for="mInput">间隔数:</label>
+  <input type="number" id="mInput" placeholder="2" value="2">
+  <label for="speedInput">速度:</label>
+  <input type="range" id="speedInput" min="50" max="2000" value="1100" step="50">
+  <div class="button-container">
+    <button id="startBtn">开始</button>
+    <button id="pauseBtn">暂停</button>
+    <button id="nextStepBtn" disabled>下一步</button>
+  </div>
+</div>
+
+<script>
+  let circles = [];
+  let currentIndex = 0;
+  let intervalId;
+  let isRunning = false;
+  let isPaused = false;
+  let isNextStep = false;
+  const circleContainer = document.getElementById('circleContainer');
+  const nInput = document.getElementById('nInput');
+  const mInput = document.getElementById('mInput');
+  const speedInput = document.getElementById('speedInput');
+  const startBtn = document.getElementById('startBtn');
+  const pauseBtn = document.getElementById('pauseBtn');
+  const nextStepBtn = document.getElementById('nextStepBtn');
+
+  startBtn.addEventListener('click', function() {
+    clearInterval(intervalId);
+    
+    const n = parseInt(nInput.value);
+    if (isNaN(n) || n <= 0) {
+      alert("请输入有效的人数！");
+      return;
+    }
+    createCircles(n);
+    isRunning = false;
+    isPaused = false;
+    isNextStep = false;
+    nextStepBtn.disabled = false;
+    pauseBtn.textContent = "暂停";
+
+    const intervalSpeed = 50;
+    const intervalTime = Math.max(intervalSpeed, 2100 - parseInt(speedInput.value));
+    intervalId = setInterval(josephus, intervalTime);
+  });
+
+  pauseBtn.addEventListener('click', function() {
+    if (isPaused) {
+      pauseBtn.textContent = "暂停";
+      isPaused = false;
+      const intervalSpeed = 50;
+      const intervalTime = Math.max(intervalSpeed, 2100 - parseInt(speedInput.value));
+      intervalId = setInterval(josephus, intervalTime);
+    } else {
+      pauseBtn.textContent = "继续";
+      clearInterval(intervalId);
+      isPaused = true;
+    }
+  });
+
+  nextStepBtn.addEventListener('click', function() {
+    if (isPaused && !isNextStep) {
+      isNextStep = true;
+      josephus();
+    }
+  });
+
+  speedInput.addEventListener('input', function() {
+    if (isRunning) return;
+    clearInterval(intervalId);
+    const intervalSpeed = 50;
+    const intervalTime = Math.max(intervalSpeed, 2100 - parseInt(speedInput.value));
+    intervalId = setInterval(josephus, intervalTime);
+  });
+
+  function createCircles(n) {
+    const radius = 180;
+    const angle = (2 * Math.PI) / n;
+    circleContainer.innerHTML = '';
+    circles = [];
+    currentIndex = 0;
+
+    for (let i = 0; i < n; i++) {
+      const circle = document.createElement('div');
+      circle.classList.add('circle');
+      const x = radius * Math.cos(angle * i) + 180; // 调整圆的中心点
+      const y = radius * Math.sin(angle * i) + 170; // 调整圆的中心点
+      circle.style.left = `${x}px`;
+      circle.style.top = `${y}px`;
+      circle.textContent = i + 1;
+      circleContainer.appendChild(circle);
+      circles.push(circle);
+    }
+  }
+
+  function josephus() {
+    if (circles.length === 1) {
+      clearInterval(intervalId);
+      circles[0].classList.add('last-one');
+      setTimeout(() => {
+        alert(`最后剩下的是: ${circles[0].textContent}`);
+      }, 500);
+      return;
+    }
+
+    if (!isNextStep) {
+      if (!isRunning) {
+        isRunning = true;
+        const step = parseInt(mInput.value) - 1;
+        currentIndex = (currentIndex + step) % circles.length;
+        circles.forEach(circle => circle.classList.remove('current'));
+        circles[currentIndex].classList.add('current');
+        setTimeout(() => {
+          circles[currentIndex].classList.add('fade-out');
+          setTimeout(() => {
+            circles[currentIndex].remove();
+            circles.splice(currentIndex, 1);
+            isRunning = false;
+          }, 300);
+        }, 300);
+      }
+    } else {
+      if (isNextStep) {
+        const step = parseInt(mInput.value) - 1;
+        currentIndex = (currentIndex + step) % circles.length;
+        circles.forEach(circle => circle.classList.remove('current'));
+        circles[currentIndex].classList.add('current');
+        setTimeout(() => {
+          circles[currentIndex].classList.add('fade-out');
+          setTimeout(() => {
+            circles[currentIndex].remove();
+            circles.splice(currentIndex, 1);
+            isNextStep = false;
+            if (circles.length === 1) {
+              alert(`最后剩下的是: ${circles[0].textContent}`);
+            }
+          }, 300);
+        }, 300);
+      }
+    }
+  }
+</script>
+</body>
+</html>
